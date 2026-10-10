@@ -1,0 +1,55 @@
+# Model Training Configuration
+# Optimized for H200 GPU on NVIDIA Brev Launchables
+
+model:
+  type: "YOLOv11x"
+  framework: "ultralytics"
+  input_resolution: [640, 640]
+
+training:
+  batch_size: 32 # Optimized for H200 memory
+  epochs: 100
+  optimizer: "AdamW"
+  learning_rate:
+    initial: 0.001
+    schedule: "cosine_annealing"
+    min_lr: 0.00001
+  validation_split: 0.2
+  mixed_precision: true # fp16 for H200
+
+augmentation:
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 0.0
+  translate: 0.1
+  scale: 0.5
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0
+  mixup: 0.1
+  copy_paste: 0.1
+
+dataset:
+  path: "/data/synthetic"
+  train: "train/images"
+  val: "val/images"
+  nc: 8 # number of classes
+  names:
+    0: "scratch"
+    1: "orange_peel"
+    2: "fish_eye"
+    3: "dust_nib"
+    4: "run_sag"
+    5: "color_mismatch"
+    6: "blister"
+    7: "pinhole"
+
+export:
+  formats:
+    - "pytorch" # .pt
+    - "onnx" # .onnx
+    - "tensorrt" # .engine
+  half_precision: true # fp16 engine export

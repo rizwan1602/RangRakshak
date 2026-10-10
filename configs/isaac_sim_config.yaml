@@ -1,0 +1,41 @@
+# Isaac Sim Scene Configuration
+# Sets up the factory environment for simulation
+
+scene:
+  conveyor_belt:
+    speed: 0.5 # m/s
+    width: 1.2 # meters
+    length: 10.0 # meters
+    position: [0.0, 0.0, 0.8] # [x, y, z]
+
+  robot_arm:
+    type: "UR10"
+    gripper: "vacuum"
+    base_position: [0.0, 1.5, 0.8]
+
+  camera:
+    type: "overhead_inspection"
+    position: [0.0, 0.0, 2.5]
+    look_at: [0.0, 0.0, 0.8]
+    resolution: [1920, 1080]
+    fov: 60 # degrees
+
+  lighting:
+    type: "factory_rig"
+    intensity: 1500
+    color_temperature: 5500 # Kelvin
+    positions:
+      - [-2.0, -2.0, 4.0]
+      - [2.0, -2.0, 4.0]
+      - [0.0, 2.0, 4.0]
+
+  objects:
+    - type: "car_body_panel"
+      spawn_interval: 5.0 # seconds
+      spawn_position: [-4.0, 0.0, 0.85]
+      mass: 5.0 # kg
+
+  physics:
+    gravity: [0.0, 0.0, -9.81]
+    solver_iterations: 12
+    dt: 0.016666 # 60 Hz
