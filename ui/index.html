@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RangRakshak - Automotive Paint Quality Inspection Cell</title>
+  <!-- Three.js and OrbitControls via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #0284c7;
+      --primary-light: #e0f2fe;
+      --success: #059669;
+      --success-light: #ecfdf5;
+      --danger: #dc2626;
+      --danger-light: #fef2f2;
+      --warning: #d97706;
+      --warning-light: #fffbeb;
+      --mono-font: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* TOP HEADER */
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 34px;
+      height: 34px;
+      background: #0284c7;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-title h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.2px;
+    }
+
+    .brand-title p {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--mono-font);
+    }
+
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .badge-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-family: var(--mono-font);
+      background: var(--bg);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 2px var(--success-light);
+    }
+
+    /* VEHICLE SELECTOR TABS */
+    .vehicle-selector-bar {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .selector-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .vehicle-tab {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .vehicle-tab:hover {
+      background: #f1f5f9;
+      border-color: var(--border-dark);
+    }
+
+    .vehicle-tab.active {
+      background: #0284c7;
+      color: white;
+      border-color: #0284c7;
+    }
+
+    .vehicle-tab.active .tab-tag {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+    }
+
+    .tab-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #e2e8f0;
+      color: var(--text-muted);
+      font-family: var(--mono-font);
+    }
+
+    /* MAIN WORKSPACE */
+    .workspace {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 120px);
+      overflow: hidden;
+    }
+
+    /* 3D BOOTH CONTAINER (LEFT/CENTER) */
+    .booth-viewport {
+      flex: 1;
+      position: relative;
+      background: #f1f5f9;
+    }
+
+    #three-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 3D OVERLAYS */
+    .booth-control-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      width: 280px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+      z-index: 10;
+    }
+
+    .control-heading {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .defect-picker {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .defect-btn {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .defect-btn:hover {
+      background: #f1f5f9;
+      border-color: var(--border-dark);
+    }
+
+    .defect-btn.active {
+      background: #0284c7;
+      color: white;
+      border-color: #0284c7;
+    }
+
+    .instruction-note {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      background: #f8fafc;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px dashed var(--border-dark);
+    }
+
+    .scan-action-btn {
+      margin-top: 10px;
+      width: 100%;
+      background: #059669;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .scan-action-btn:hover {
+      background: #047857;
+    }
+
+    .booth-legend {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-family: var(--mono-font);
+      color: var(--text-muted);
+      z-index: 10;
+    }
+
+    /* RIGHT TELEMETRY & HUD PANEL */
+    .telemetry-sidebar {
+      width: 420px;
+      background: var(--card-bg);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .panel-section {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* CAMERA VIEWPORT */
+    .camera-feed-box {
+      width: 100%;
+      height: 190px;
+      background: #0f172a;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+    }
+
+    #camera-canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(2, 132, 199, 0.8);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .crosshair::before, .crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(2, 132, 199, 0.8);
+    }
+
+    .crosshair::before {
+      top: 50%;
+      left: -10px;
+      width: 64px;
+      height: 1px;
+      transform: translateY(-50%);
+    }
+
+    .crosshair::after {
+      left: 50%;
+      top: -10px;
+      height: 64px;
+      width: 1px;
+      transform: translateX(-50%);
+    }
+
+    .cam-hud-tag {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(15, 23, 42, 0.75);
+      color: #38bdf8;
+      font-family: var(--mono-font);
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .cam-fps-tag {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(15, 23, 42, 0.75);
+      color: #4ade80;
+      font-family: var(--mono-font);
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    /* VERDICT BANNER */
+    .verdict-card {
+      margin-top: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .verdict-card.pass {
+      background: var(--success-light);
+      border-color: #a7f3d0;
+      color: #065f46;
+    }
+
+    .verdict-card.reject {
+      background: var(--danger-light);
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+
+    .verdict-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .verdict-sub {
+      font-size: 12px;
+      font-family: var(--mono-font);
+      opacity: 0.85;
+    }
+
+    .confidence-pill {
+      font-family: var(--mono-font);
+      font-weight: 700;
+      font-size: 13px;
+      background: white;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    /* DIAGNOSTIC & REMEDIATION */
+    .diagnostic-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .info-card {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+    }
+
+    .info-card-header {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .info-card-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .info-card-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .remediation-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .remediation-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-family: var(--mono-font);
+      font-weight: 700;
+      color: #1d4ed8;
+      background: #dbeafe;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .remediation-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-bottom: 6px;
+    }
+
+    .remediation-detail {
+      font-size: 12px;
+      color: #3b82f6;
+      line-height: 1.5;
+    }
+
+    .cost-avoided-badge {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed #bfdbfe;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+
+    /* NEMOCLAW INTERACTIVE CHAT */
+    .nemoclaw-chat-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 20px;
+    }
+
+    .chat-history {
+      flex: 1;
+      max-height: 150px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .chat-bubble {
+      padding: 8px 12px;
+      border-radius: 6px;
+      line-height: 1.4;
+    }
+
+    .chat-bubble.bot {
+      background: #f1f5f9;
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .chat-bubble.user {
+      background: #e0f2fe;
+      color: #0369a1;
+      align-self: flex-end;
+    }
+
+    .chat-quick-btns {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+      overflow-x: auto;
+    }
+
+    .quick-chip {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .quick-chip:hover {
+      background: #e2e8f0;
+    }
+
+    .chat-input-bar {
+      display: flex;
+      gap: 8px;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .chat-input:focus {
+      border-color: #0284c7;
+    }
+
+    .chat-send-btn {
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 0 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo">RR</div>
+      <div class="brand-title">
+        <h1>RangRakshak</h1>
+        <p>Automotive Paint Surface Quality Station #04 • NVIDIA Physical AI</p>
+      </div>
+    </div>
+    <div class="system-status">
+      <div class="badge-status">
+        <span class="indicator-dot"></span>
+        <span>Cobot UR10: ARMED</span>
+      </div>
+      <div class="badge-status">
+        <span>GPU: H200 (0.9ms)</span>
+      </div>
+      <div class="badge-status">
+        <span>Model: YOLO11x (99.1% mAP)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- VEHICLE SELECTOR TABS -->
+  <div class="vehicle-selector-bar">
+    <span class="selector-label">Inspection Queue:</span>
+    <button class="vehicle-tab active" onclick="switchVehicle('car1')">
+      <span>Vehicle 1: OEM Flawless (Pass)</span>
+      <span class="tab-tag">White Sedan</span>
+    </button>
+    <button class="vehicle-tab" onclick="switchVehicle('car2')">
+      <span>Vehicle 2: Interactive Defect Test (Touch Car Body)</span>
+      <span class="tab-tag">Blue SUV</span>
+    </button>
+    <button class="vehicle-tab" onclick="switchVehicle('car3')">
+      <span>Vehicle 3: QA Factory Batch (Mixed)</span>
+      <span class="tab-tag">Black Hatch</span>
+    </button>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div class="workspace">
+    
+    <!-- 3D BOOTH VIEWPORT -->
+    <div class="booth-viewport">
+      <canvas id="three-canvas"></canvas>
+
+      <!-- 3D CONTROL OVERLAY -->
+      <div class="booth-control-overlay">
+        <div class="control-heading">
+          <span>Defect Injection Tool</span>
+          <span id="selected-panel-tag">Driver Door</span>
+        </div>
+        <div class="defect-picker">
+          <button class="defect-btn active" onclick="selectDefect('scratch', this)">🔪 Scratch</button>
+          <button class="defect-btn" onclick="selectDefect('dent', this)">🔨 Dent</button>
+          <button class="defect-btn" onclick="selectDefect('orange_peel', this)">🍊 Orange Peel</button>
+          <button class="defect-btn" onclick="selectDefect('fish_eye', this)">👁️ Fish Eye</button>
+        </div>
+        <p class="instruction-note">
+          👉 <strong>Click anywhere on the car body</strong> to place the selected defect, or hit "Trigger Cobot Scan" to evaluate current position.
+        </p>
+        <button class="scan-action-btn" onclick="triggerScan()">
+          ⚡ Trigger Cobot Scan
+        </button>
+      </div>
+
+      <div class="booth-legend">
+        🖱️ Drag: Rotate 360° | Scroll: Zoom | Click Car: Place Defect
+      </div>
+    </div>
+
+    <!-- TELEMETRY & HUD PANEL -->
+    <div class="telemetry-sidebar">
+      
+      <!-- CAMERA VIEWPORT -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>Cobot End-Effector Telecentric Camera</span>
+          <span>4K 60FPS</span>
+        </div>
+        <div class="camera-feed-box">
+          <canvas id="camera-canvas" width="400" height="190"></canvas>
+          <div class="cam-hud-tag">CAM-01 • TELECENTRIC 35mm</div>
+          <div class="cam-fps-tag">LATENCY: 0.9ms</div>
+          <div class="crosshair"></div>
+        </div>
+
+        <!-- VERDICT CARD -->
+        <div id="verdict-card" class="verdict-card pass">
+          <div>
+            <div id="verdict-title" class="verdict-title">PASS</div>
+            <div id="verdict-sub" class="verdict-sub">Flawless OEM Finish • Delta E < 0.15</div>
+          </div>
+          <div id="verdict-conf" class="confidence-pill">99.8% CONF</div>
+        </div>
+      </div>
+
+      <!-- DIAGNOSTIC & REMEDIATION -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>Physical AI Root Cause & Remediation</span>
+          <span>AUTONOMOUS</span>
+        </div>
+        <div class="diagnostic-grid">
+          <div class="info-card">
+            <div class="info-card-header">Target Coordinates (UR10 Base Frame)</div>
+            <div id="target-coords" class="info-card-value font-mono">X: +1.240m | Y: +0.680m | Z: +0.890m</div>
+            <div id="target-panel" class="info-card-sub">Panel: Driver Side Front Door (A-Pillar junction)</div>
+          </div>
+
+          <div class="remediation-box">
+            <div class="remediation-tag">Autonomous Corrective Action</div>
+            <div id="remediation-title" class="remediation-title">Proceed to Assembly Line 2</div>
+            <div id="remediation-detail" class="remediation-detail">
+              Surface inspection meets Class-A automotive aesthetic standards. Zero defect escapes.
+            </div>
+            <div class="cost-avoided-badge">
+              <span>Financial Impact:</span>
+              <span id="cost-avoided-val">₹0 Scrap Avoided</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NEMOCLAW CHAT -->
+      <div class="nemoclaw-chat-section">
+        <div class="section-title">
+          <span>NemoClaw Quality Assistant</span>
+          <span>SANDBOXED</span>
+        </div>
+        <div id="chat-history" class="chat-history">
+          <div class="chat-bubble bot">
+            NemoClaw initialized. Ready to answer quality telemetry, scrap cost, and Cobot trajectory inquiries.
+          </div>
+        </div>
+        <div class="chat-quick-btns">
+          <button class="quick-chip" onclick="askPreset('How many defects today?')">📊 Defect Count</button>
+          <button class="quick-chip" onclick="askPreset('What is the scrap cost saved?')">💰 Cost Saved</button>
+          <button class="quick-chip" onclick="askPreset('Explain Cobot inspection arm specs')">🤖 Cobot Specs</button>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" id="chat-input" class="chat-input" placeholder="Ask NemoClaw..." onkeydown="if(event.key==='Enter') sendChat()">
+          <button class="chat-send-btn" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // GLOBAL STATE
+    let currentVehicle = 'car1';
+    let currentDefect = 'scratch';
+    let defectCoordinates = { x: 0.8, y: 0.6, z: 0.9 };
+    let hasDefect = false;
+    let targetPanelName = "Front Driver Door";
+
+    // THREE.JS SCENE SETUP
+    const canvas = document.getElementById('three-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf1f5f9);
+
+    const camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
+    camera.position.set(4.5, 3.2, 5.0);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02; // Don't go below floor
+    controls.minDistance = 2.0;
+    controls.maxDistance = 10.0;
+
+    // INDUSTRIAL LIGHTING RIG
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    scene.add(ambientLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    mainLight.position.set(5, 8, 5);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 2048;
+    mainLight.shadow.mapSize.height = 2048;
+    scene.add(mainLight);
+
+    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.5);
+    fillLight.position.set(-5, 6, -5);
+    scene.add(fillLight);
+
+    // BOOTH FLOOR & GRID
+    const floorGeo = new THREE.PlaneGeometry(16, 16);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.85, metalness: 0.1 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(16, 32, 0x94a3b8, 0xcbd5e1);
+    grid.position.y = 0.005;
+    scene.add(grid);
+
+    // CAR 3D MODEL CONTAINER
+    const carGroup = new THREE.Group();
+    scene.add(carGroup);
+
+    let carBodyMesh;
+    const carPaintMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      metalness: 0.4,
+      roughness: 0.15,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1
+    });
+
+    function buildProceduralCar() {
+      while(carGroup.children.length > 0) { 
+        carGroup.remove(carGroup.children[0]); 
+      }
+
+      // Lower Chassis / Body
+      const bodyGeo = new THREE.BoxGeometry(3.6, 0.65, 1.6);
+      carBodyMesh = new THREE.Mesh(bodyGeo, carPaintMat);
+      carBodyMesh.position.y = 0.55;
+      carBodyMesh.castShadow = true;
+      carBodyMesh.receiveShadow = true;
+      carBodyMesh.userData = { isCarBody: true };
+      carGroup.add(carBodyMesh);
+
+      // Cabin / Roof
+      const cabinGeo = new THREE.BoxGeometry(1.9, 0.6, 1.4);
+      const cabinMesh = new THREE.Mesh(cabinGeo, carPaintMat);
+      cabinMesh.position.set(-0.2, 1.1, 0);
+      cabinMesh.castShadow = true;
+      cabinMesh.receiveShadow = true;
+      cabinMesh.userData = { isCarBody: true };
+      carGroup.add(cabinMesh);
+
+      // Glass Windows
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.1, metalness: 0.9 });
+      const windShieldGeo = new THREE.BoxGeometry(1.82, 0.52, 1.42);
+      const glassMesh = new THREE.Mesh(windShieldGeo, glassMat);
+      glassMesh.position.set(-0.2, 1.1, 0);
+      carGroup.add(glassMesh);
+
+      // Wheels
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+      const rimMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.8, roughness: 0.2 });
+      const wheelPositions = [
+        [1.1, 0.35, 0.85], [1.1, 0.35, -0.85],
+        [-1.1, 0.35, 0.85], [-1.1, 0.35, -0.85]
+      ];
+
+      wheelPositions.forEach(pos => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.25, 24), wheelMat);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(...pos);
+        wheel.castShadow = true;
+        carGroup.add(wheel);
+
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.26, 16), rimMat);
+        rim.rotation.x = Math.PI / 2;
+        rim.position.set(...pos);
+        carGroup.add(rim);
+      });
+    }
+
+    buildProceduralCar();
+
+    // DEFECT VISUAL MARKER IN 3D
+    const defectMarkerGeo = new THREE.RingGeometry(0.04, 0.09, 24);
+    const defectMarkerMat = new THREE.MeshBasicMaterial({ color: 0xdc2626, side: THREE.DoubleSide });
+    const defectMarker = new THREE.Mesh(defectMarkerGeo, defectMarkerMat);
+    defectMarker.visible = false;
+    scene.add(defectMarker);
+
+    // COBOT (UR10 ROBOTIC ARM)
+    const cobotGroup = new THREE.Group();
+    cobotGroup.position.set(0, 0, 2.3); // Mounted alongside car
+    scene.add(cobotGroup);
+
+    const metalDarkMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+    const urLightMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.5, roughness: 0.3 });
+    const urCyanMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 });
+
+    // Base Pedestal
+    const basePedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.7, 24), metalDarkMat);
+    basePedestal.position.y = 0.35;
+    basePedestal.castShadow = true;
+    cobotGroup.add(basePedestal);
+
+    // Shoulder
+    const shoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.3, 24), urCyanMat);
+    shoulder.position.y = 0.75;
+    cobotGroup.add(shoulder);
+
+    // Arm Link 1
+    const arm1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.1, 16), urLightMat);
+    arm1.position.set(0, 1.25, 0);
+    arm1.rotation.z = 0.25;
+    arm1.castShadow = true;
+    cobotGroup.add(arm1);
+
+    // Elbow Joint
+    const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), urCyanMat);
+    elbow.position.set(-0.25, 1.7, 0);
+    cobotGroup.add(elbow);
+
+    // Forearm Link 2
+    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.9, 16), urLightMat);
+    forearm.position.set(0.15, 1.9, 0);
+    forearm.rotation.z = -0.55;
+    forearm.castShadow = true;
+    cobotGroup.add(forearm);
+
+    // Camera End-Effector Head
+    const camHead = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 0.25), metalDarkMat);
+    camHead.position.set(0.6, 2.05, -0.6);
+    cobotGroup.add(camHead);
+
+    // Laser Line (Scanning Beam)
+    const laserGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0.6, 2.0, -0.6),
+      new THREE.Vector3(0.8, 0.6, -1.5)
+    ]);
+    const laserMat = new THREE.LineBasicMaterial({ color: 0x22c55e, linewidth: 2 });
+    const laserLine = new THREE.Line(laserGeo, laserMat);
+    laserLine.visible = false;
+    cobotGroup.add(laserLine);
+
+    // RAYCASTING FOR INTERACTIVE CLICKS ON 3D CAR
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    renderer.domElement.addEventListener('click', onCanvasClick);
+
+    function onCanvasClick(e) {
+      if (currentVehicle !== 'car2') return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(carGroup.children, true);
+
+      if (intersects.length > 0 && intersects[0].object.userData.isCarBody) {
+        const hit = intersects[0];
+        defectCoordinates = { x: hit.point.x, y: hit.point.y, z: hit.point.z };
+        hasDefect = true;
+
+        // Position 3D marker
+        defectMarker.position.copy(hit.point);
+        defectMarker.position.add(hit.face.normal.clone().multiplyScalar(0.01));
+        defectMarker.lookAt(hit.point.clone().add(hit.face.normal));
+        defectMarker.visible = true;
+
+        // Determine panel name based on X/Y
+        if (hit.point.x > 0.6) targetPanelName = "Front Hood Panel";
+        else if (hit.point.x < -0.6) targetPanelName = "Rear Quarter Panel";
+        else targetPanelName = hit.point.y > 0.9 ? "Roof Arch" : "Driver Door Panel";
+
+        document.getElementById('selected-panel-tag').innerText = targetPanelName;
+        triggerScan();
+      }
+    }
+
+    // VEHICLE SWITCHER
+    function switchVehicle(id) {
+      currentVehicle = id;
+      document.querySelectorAll('.vehicle-tab').forEach(t => t.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+
+      defectMarker.visible = false;
+      hasDefect = false;
+
+      if (id === 'car1') {
+        carPaintMat.color.setHex(0xffffff); // White Sedan
+        hasDefect = false;
+        targetPanelName = "Front Door (Clean OEM)";
+      } else if (id === 'car2') {
+        carPaintMat.color.setHex(0x1d4ed8); // Sapphire Blue SUV
+        hasDefect = true;
+        targetPanelName = "Driver Door Panel";
+      } else if (id === 'car3') {
+        carPaintMat.color.setHex(0x0f172a); // Black Hatchback
+        hasDefect = true;
+        currentDefect = 'orange_peel';
+        targetPanelName = "Rear Tailgate Panel";
+      }
+
+      triggerScan();
+    }
+
+    function selectDefect(type, btn) {
+      currentDefect = type;
+      document.querySelectorAll('.defect-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (hasDefect) triggerScan();
+    }
+
+    // COBOT SCAN & INSPECTION ENGINE
+    let isScanning = false;
+    function triggerScan() {
+      if (isScanning) return;
+      isScanning = true;
+
+      // Aim Cobot arm toward defect or default panel
+      const targetPos = hasDefect ? defectCoordinates : { x: 0.8, y: 0.6, z: 0.9 };
+      laserLine.visible = true;
+      laserMat.color.setHex(hasDefect ? 0xdc2626 : 0x059669);
+
+      // Update laser beam endpoints
+      const posAttr = laserLine.geometry.attributes.position;
+      posAttr.setXYZ(0, camHead.position.x, camHead.position.y, camHead.position.z);
+      posAttr.setXYZ(1, targetPos.x - cobotGroup.position.x, targetPos.y - cobotGroup.position.y, targetPos.z - cobotGroup.position.z);
+      posAttr.needsUpdate = true;
+
+      // Animate Camera feed
+      renderSyntheticCameraFeed(hasDefect ? currentDefect : 'clean');
+
+      // Call Backend API
+      fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          defect_type: hasDefect ? currentDefect : 'clean',
+          x: targetPos.x,
+          y: targetPos.y,
+          z: targetPos.z,
+          panel: targetPanelName
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        updateHUD(data);
+        setTimeout(() => { laserLine.visible = false; isScanning = false; }, 800);
+      })
+      .catch(err => {
+        console.error(err);
+        isScanning = false;
+      });
+    }
+
+    function updateHUD(data) {
+      const vCard = document.getElementById('verdict-card');
+      const vTitle = document.getElementById('verdict-title');
+      const vSub = document.getElementById('verdict-sub');
+      const vConf = document.getElementById('verdict-conf');
+
+      if (data.verdict === 'PASS') {
+        vCard.className = 'verdict-card pass';
+        vTitle.innerText = 'PASS';
+        vSub.innerText = 'Flawless OEM Finish • Delta E < 0.15';
+      } else {
+        vCard.className = 'verdict-card reject';
+        vTitle.innerText = `REJECT: ${data.defect}`;
+        vSub.innerText = `Surface Anomaly Detected at ${data.panel}`;
+      }
+
+      vConf.innerText = `${(data.confidence * 100).toFixed(1)}% CONF`;
+
+      document.getElementById('target-coords').innerText = 
+        `X: ${data.coordinates.x > 0 ? '+' : ''}${data.coordinates.x.toFixed(3)}m | ` +
+        `Y: +${data.coordinates.y.toFixed(3)}m | ` +
+        `Z: ${data.coordinates.z.toFixed(3)}m`;
+      
+      document.getElementById('target-panel').innerText = `Panel: ${data.panel}`;
+
+      const diag = data.diagnostic;
+      document.getElementById('remediation-title').innerText = diag.action;
+      document.getElementById('remediation-detail').innerHTML = 
+        `<strong>Parameters:</strong> ${diag.parameters}<br>` +
+        `<strong>Routing:</strong> Divert to ${diag.station}.<br>` +
+        `<strong>Feedback:</strong> ${diag.recommendation}`;
+      
+      document.getElementById('cost-avoided-val').innerText = diag.cost_avoided;
+    }
+
+    // SIMULATED TELECENTRIC CAMERA FEED CANVAS
+    const camCanvas = document.getElementById('camera-canvas');
+    const camCtx = camCanvas.getContext('2d');
+
+    function renderSyntheticCameraFeed(defectType) {
+      const w = camCanvas.width;
+      const h = camCanvas.height;
+
+      // Base automotive surface gradient
+      const bgGrad = camCtx.createLinearGradient(0, 0, w, h);
+      if (currentVehicle === 'car1') {
+        bgGrad.addColorStop(0, '#f8fafc');
+        bgGrad.addColorStop(1, '#cbd5e1');
+      } else if (currentVehicle === 'car2') {
+        bgGrad.addColorStop(0, '#1e40af');
+        bgGrad.addColorStop(1, '#1e3a8a');
+      } else {
+        bgGrad.addColorStop(0, '#1e293b');
+        bgGrad.addColorStop(1, '#0f172a');
+      }
+
+      camCtx.fillStyle = bgGrad;
+      camCtx.fillRect(0, 0, w, h);
+
+      // Specular highlight line
+      camCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      camCtx.lineWidth = 3;
+      camCtx.beginPath();
+      camCtx.moveTo(w * 0.2, 0);
+      camCtx.lineTo(w * 0.8, h);
+      camCtx.stroke();
+
+      if (defectType !== 'clean') {
+        const cx = w / 2;
+        const cy = h / 2;
+
+        // Render Defect Bounding Box
+        camCtx.strokeStyle = '#dc2626';
+        camCtx.lineWidth = 2;
+        camCtx.strokeRect(cx - 45, cy - 35, 90, 70);
+
+        camCtx.fillStyle = '#dc2626';
+        camCtx.font = 'bold 11px JetBrains Mono';
+        camCtx.fillText(`${defectType.toUpperCase()} (99.1%)`, cx - 45, cy - 42);
+
+        // Render Defect Graphic
+        if (defectType === 'scratch') {
+          camCtx.strokeStyle = '#f8fafc';
+          camCtx.lineWidth = 2.5;
+          camCtx.beginPath();
+          camCtx.moveTo(cx - 30, cy - 15);
+          camCtx.lineTo(cx + 35, cy + 20);
+          camCtx.stroke();
+        } else if (defectType === 'dent') {
+          const radial = camCtx.createRadialGradient(cx, cy, 5, cx, cy, 28);
+          radial.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+          radial.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
+          camCtx.fillStyle = radial;
+          camCtx.beginPath();
+          camCtx.arc(cx, cy, 28, 0, Math.PI * 2);
+          camCtx.fill();
+        } else if (defectType === 'orange_peel') {
+          camCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          for (let i = -30; i < 30; i += 10) {
+            for (let j = -20; j < 20; j += 10) {
+              camCtx.beginPath();
+              camCtx.arc(cx + i, cy + j, 3, 0, Math.PI * 2);
+              camCtx.fill();
+            }
+          }
+        } else if (defectType === 'fish_eye') {
+          camCtx.strokeStyle = '#f8fafc';
+          camCtx.lineWidth = 2;
+          camCtx.beginPath();
+          camCtx.arc(cx, cy, 14, 0, Math.PI * 2);
+          camCtx.stroke();
+          camCtx.fillStyle = '#0f172a';
+          camCtx.beginPath();
+          camCtx.arc(cx, cy, 8, 0, Math.PI * 2);
+          camCtx.fill();
+        }
+      }
+    }
+
+    // NEMOCLAW CHAT HELPER
+    function sendChat() {
+      const input = document.getElementById('chat-input');
+      const val = input.value.trim();
+      if (!val) return;
+      askNemoClaw(val);
+      input.value = '';
+    }
+
+    function askPreset(txt) {
+      askNemoClaw(txt);
+    }
+
+    function askNemoClaw(text) {
+      const hist = document.getElementById('chat-history');
+      const uBubble = document.createElement('div');
+      uBubble.className = 'chat-bubble user';
+      uBubble.innerText = text;
+      hist.appendChild(uBubble);
+
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: text })
+      })
+      .then(res => res.json())
+      .then(data => {
+        const bBubble = document.createElement('div');
+        bBubble.className = 'chat-bubble bot';
+        bBubble.innerText = data.reply;
+        hist.appendChild(bBubble);
+        hist.scrollTop = hist.scrollHeight;
+      });
+    }
+
+    // RENDER LOOP
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+
+      // Gentle cobot idle breathing motion
+      if (!isScanning) {
+        camHead.position.y = 2.05 + Math.sin(Date.now() * 0.0015) * 0.02;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // WINDOW RESIZE
+    window.addEventListener('resize', () => {
+      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    });
+
+    // INIT
+    renderSyntheticCameraFeed('clean');
+    triggerScan();
+    animate();
+  </script>
+</body>
+</html>
