@@ -1,69 +1,98 @@
 #!/usr/bin/env python3
 """
-Live detection script on Isaac Sim camera feed.
-Captures frames, runs YOLO inference, draws bounding boxes, logs to CSV.
+RangRakshak - Live Defect Detection & Quality Inspection Routine
+Runs YOLOv11 inference on synthetic validation panels or live streams.
+Annotates detected defects with bounding boxes and logs PASS/REJECT verdicts to CSV.
 """
 
+import os
+import glob
 import time
 import argparse
 import csv
+import cv2
+from pathlib import Path
 
-# TODO: Import inference libraries and camera feed handlers
-# from ultralytics import YOLO
-# import cv2
-
-def run_inference(model_path, output_csv):
-    """Run live inference loop."""
-    print(f"Loading TensorRT optimized model from {model_path}...")
-    # model = YOLO(model_path)
-    
-    print("Connecting to Isaac Sim camera feed...")
-    # cap = cv2.VideoCapture("rtsp://isaac_sim_camera_feed")
-    
-    print(f"Logging results to {output_csv}")
-    
-    # with open(output_csv, mode='w', newline='') as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow(['timestamp', 'panel_id', 'status', 'defect_types', 'confidence'])
-        
-    print("Starting inference loop. Press Ctrl+C to stop.")
+def run_inspection(weights_path, source_dir="data/synthetic/images/val", output_dir="runs/inspection_results", output_csv="runs/inspection_log.csv"):
     try:
-        panels_inspected = 0
-        defects_found = 0
-        
-        while True:
-            # Simulate frame capture
-            # ret, frame = cap.read()
-            # results = model(frame)
-            
-            # Simulate processing
-            time.sleep(0.5) 
-            panels_inspected += 1
-            status = "PASS" if panels_inspected % 5 != 0 else "REJECT"
-            
-            if status == "REJECT":
-                defects_found += 1
-                print(f"[REJECT] Panel {panels_inspected} - Defect detected. Triggering UR10 sort routine.")
-                # TODO: Trigger robot arm action via ROS or direct API
+        from ultralytics import YOLO
+    except ImportError:
+        print("❌ Error: ultralytics is not installed. Run: pip install ultralytics")
+        return
+
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(output_csv) if os.path.dirname(output_csv) else ".", exist_ok=True)
+
+    print("=" * 60)
+    print("🔍 RangRakshak: Initiating Real-Time Quality Inspection")
+    print("=" * 60)
+    print(f"📦 Loading weights from: {weights_path}")
+    model = YOLO(weights_path)
+    
+    # Collect sample test frames
+    image_paths = sorted(glob.glob(os.path.join(source_dir, "*.jpg")) + glob.glob(os.path.join(source_dir, "*.png")))
+    if not image_paths:
+        print(f"⚠️ No images found in {source_dir}. Run scripts/01_generate_defects.py first!")
+        return
+
+    print(f"📸 Found {len(image_paths)} automotive panels to inspect in {source_dir}\n")
+
+    with open(output_csv, mode="w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["timestamp", "panel_file", "verdict", "defect_count", "detected_classes", "confidences"])
+
+        total_inspected = 0
+        total_rejected = 0
+
+        for img_path in image_paths[:50]:  # Inspect first 50 panels for demo
+            start_t = time.time()
+            results = model.predict(source=img_path, conf=0.25, verbose=False)[0]
+            infer_time = (time.time() - start_t) * 1000
+
+            total_inspected += 1
+            boxes = results.boxes
+            num_defects = len(boxes)
+
+            defect_names = [results.names[int(cls)] for cls in boxes.cls.tolist()] if num_defects > 0 else []
+            confs = [f"{conf:.2f}" for conf in boxes.conf.tolist()] if num_defects > 0 else []
+
+            if num_defects > 0:
+                verdict = "REJECT"
+                total_rejected += 1
+                color_tag = "\033[91m[REJECT]\033[0m"
             else:
-                print(f"[PASS] Panel {panels_inspected}")
-                
-            defect_rate = (defects_found / panels_inspected) * 100
-            print(f"Stats - Throughput: 2 panels/sec | Defect Rate: {defect_rate:.1f}%", end='\r')
-            
-    except KeyboardInterrupt:
-        print("\nInference stopped by user.")
+                verdict = "PASS"
+                color_tag = "\033[92m[PASS]\033[0m"
+
+            filename = os.path.basename(img_path)
+            # Annotate and save visual result
+            annotated_frame = results.plot()
+            out_img_path = os.path.join(output_dir, f"inspected_{filename}")
+            cv2.imwrite(out_img_path, annotated_frame)
+
+            writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), filename, verdict, num_defects, ";".join(defect_names), ";".join(confs)])
+
+            print(f"{color_tag} Panel: {filename:<20} | Defect(s): {num_defects:<2} | Classes: {', '.join(defect_names) if defect_names else 'Flawless':<30} | {infer_time:.1f}ms")
+
+    defect_rate = (total_rejected / total_inspected) * 100 if total_inspected > 0 else 0
+    print("\n" + "=" * 60)
+    print(f"📊 Final Inspection Summary:")
+    print(f"   • Total Panels Checked:  {total_inspected}")
+    print(f"   • Total Passed:          {total_inspected - total_rejected}")
+    print(f"   • Total Rejected:        {total_rejected} ({defect_rate:.1f}% defect rate)")
+    print(f"   • Annotated Visuals:     {output_dir}")
+    print(f"   • Audit Log:             {output_csv}")
+    print("=" * 60)
 
 def main():
-    parser = argparse.ArgumentParser(description="Run live defect inference.")
-    parser.add_argument("--model", type=str, default="models/yolo11x_paint_defect.engine", help="Path to TRT model")
-    parser.add_argument("--log", type=str, default="logs/inspection_results.csv", help="CSV log output path")
+    parser = argparse.ArgumentParser(description="Run defect inspection on automotive panels.")
+    parser.add_argument("--weights", type=str, default="weights/best.pt", help="Path to trained YOLO weights")
+    parser.add_argument("--source", type=str, default="data/synthetic/images/val", help="Path to test images")
+    parser.add_argument("--out", type=str, default="runs/inspection_results", help="Directory for visual output")
+    parser.add_argument("--log", type=str, default="runs/inspection_log.csv", help="Inspection CSV log file")
     args = parser.parse_args()
 
-    try:
-        run_inference(args.model, args.log)
-    except Exception as e:
-        print(f"Error during inference: {e}")
+    run_inspection(args.weights, args.source, args.out, args.log)
 
 if __name__ == "__main__":
     main()
